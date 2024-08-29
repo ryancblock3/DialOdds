@@ -1,0 +1,18 @@
+# Ignore actual config file with sensitive information
+config.h
+.env
+
+# Ignore build output and temporary files
+build/
+.vscode/
+*.bin
+*.elf
+*.hex
+*.map
+*.out
+*.srec
+*.sx
+*.vcd
+*.vpd
+*.vpi
+*.vpo

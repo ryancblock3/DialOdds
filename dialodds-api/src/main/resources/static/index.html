@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NFL API Home</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1 {
+            color: #2c3e50;
+        }
+        .endpoint {
+            background-color: #f4f4f4;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+        .method {
+            font-weight: bold;
+            color: #2980b9;
+        }
+        .path {
+            color: #27ae60;
+        }
+    </style>
+</head>
+<body>
+    <h1>Welcome to the NFL API</h1>
+    <p>Here are the available endpoints:</p>
+    
+    <div class="endpoint">
+        <span class="method">GET</span> 
+        <span class="path">/api/nfl/weeks</span>
+        <p>Retrieves a list of available NFL weeks.</p>
+    </div>
+    
+    <div class="endpoint">
+        <span class="method">GET</span> 
+        <span class="path">/api/nfl/games/{week}</span>
+        <p>Retrieves NFL games for a specific week. Replace {week} with the desired week number.</p>
+    </div>
+    
+    <p>To use these endpoints, append them to the base URL: <code>http://localhost:8080</code></p>
+</body>
+</html>
