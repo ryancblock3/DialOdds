@@ -1,4 +1,4 @@
-name: SeasonsBot CI/CD
+name: DialOdds API CI/CD
 
 on:
   push:
@@ -23,7 +23,7 @@ jobs:
       run: mvn clean package
 
     - name: Build Docker image
-      run: docker build -t seasonsbot:latest .
+      run: docker build -t dialodds-api:latest .
 
     - name: Log in to Docker Hub
       uses: docker/login-action@v1
@@ -33,8 +33,8 @@ jobs:
 
     - name: Push to Docker Hub
       run: |
-        docker tag seasonsbot:latest ${{ secrets.DOCKER_HUB_USERNAME }}/seasonsbot:latest
-        docker push ${{ secrets.DOCKER_HUB_USERNAME }}/seasonsbot:latest
+        docker tag dialodds-api:latest ${{ secrets.DOCKER_HUB_USERNAME }}/dialodds-api:latest
+        docker push ${{ secrets.DOCKER_HUB_USERNAME }}/dialodds-api:latest
 
   deploy:
     needs: build
@@ -48,11 +48,20 @@ jobs:
         username: ${{ secrets.UNRAID_USERNAME }}
         password: ${{ secrets.UNRAID_PASSWORD }}
         script: |
-          docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/seasonsbot:latest
-          docker stop seasonsbot || true
-          docker rm seasonsbot || true
-          docker run -d --name seasonsbot \
-            -e DISCORD_BOT_TOKEN=${{ secrets.DISCORD_BOT_TOKEN }} \
-            -e API_BASE_URL=http://dialodds-api:8080 \
+          docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/dialodds-api:latest
+          docker stop dialodds-api || true
+          docker rm dialodds-api || true
+          docker run -d --name dialodds-api \
+            -p 8080:8080 \
+            -e JDBC_DATABASE_URL=${{ secrets.JDBC_DATABASE_URL }} \
+            -e JDBC_DATABASE_USERNAME=${{ secrets.JDBC_DATABASE_USERNAME }} \
+            -e JDBC_DATABASE_PASSWORD=${{ secrets.JDBC_DATABASE_PASSWORD }} \
+            -e API_KEY=${{ secrets.API_KEY }} \
+            -e API_BOOKMAKER=${{ secrets.API_BOOKMAKER }} \
+            -e API_TARGETED_SPORTS=${{ secrets.API_TARGETED_SPORTS }} \
+            -e API_UPDATE_CRON=${{ secrets.API_UPDATE_CRON }} \
+            -e ADMIN_USERNAME=${{ secrets.ADMIN_USERNAME }} \
+            -e ADMIN_PASSWORD=${{ secrets.ADMIN_PASSWORD }} \
+            -e REMEMBER_ME_KEY=${{ secrets.REMEMBER_ME_KEY }} \
             --network mynetwork \
-            ${{ secrets.DOCKER_HUB_USERNAME }}/seasonsbot:latest
+            ${{ secrets.DOCKER_HUB_USERNAME }}/dialodds-api:latest
