@@ -34,4 +34,9 @@ public class AdminController {
     public String manuallyUpdateDatabase() {
         return oddsPopulationService.manuallyPopulateDatabase();
     }
+
+    @GetMapping("/dashboard")
+    public String dashboard() {
+        return "admin-dashboard";
+    }
 }

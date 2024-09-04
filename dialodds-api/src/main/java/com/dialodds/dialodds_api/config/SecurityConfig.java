@@ -23,23 +23,29 @@ public class SecurityConfig {
     @Value("${ADMIN_PASSWORD}")
     private String adminPassword;
 
+    @Value("${REMEMBER_ME_KEY}")
+    private String rememberMeKey;
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
             .csrf().disable()  // Disable CSRF for API endpoints
             .authorizeHttpRequests((requests) -> requests
-                .requestMatchers("/", "/home", "/api/**").permitAll()  // Allow access to API endpoints
+                .requestMatchers("/", "/home", "/api/**").permitAll()
                 .requestMatchers("/admin/**", "/api/admin/**").hasRole("ADMIN")
                 .anyRequest().authenticated()
             )
             .formLogin((form) -> form
                 .loginPage("/login")
-                .defaultSuccessUrl("/admin/pending-games", true)
+                .defaultSuccessUrl("/admin/dashboard", true)
                 .permitAll()
             )
             .logout((logout) -> logout
                 .logoutSuccessUrl("/login?logout")
-                .permitAll());
+                .permitAll())
+            .rememberMe((remember) -> remember
+                .key(rememberMeKey)
+                .tokenValiditySeconds(2592000)); // 30 days
 
         return http.build();
     }

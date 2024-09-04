@@ -28,7 +28,10 @@ public class UserService {
     }
 
     public List<Map<String, Object>> getUsersBySeason(int seasonId) {
-        String sql = "SELECT u.id, u.username, us.coins FROM users u JOIN user_seasons us ON u.id = us.user_id WHERE us.season_id = ?";
+        String sql = "SELECT u.id, u.username, u.discord_id, us.coins " +
+                     "FROM users u " +
+                     "JOIN user_seasons us ON u.id = us.user_id " +
+                     "WHERE us.season_id = ?";
         return jdbcTemplate.queryForList(sql, seasonId);
     }
 
