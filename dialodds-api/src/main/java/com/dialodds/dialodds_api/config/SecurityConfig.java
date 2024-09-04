@@ -29,7 +29,7 @@ public class SecurityConfig {
             .csrf().disable()  // Disable CSRF for API endpoints
             .authorizeHttpRequests((requests) -> requests
                 .requestMatchers("/", "/home", "/api/**").permitAll()  // Allow access to API endpoints
-                .requestMatchers("/admin/**").hasRole("ADMIN")
+                .requestMatchers("/admin/**", "/api/admin/**").hasRole("ADMIN")
                 .anyRequest().authenticated()
             )
             .formLogin((form) -> form

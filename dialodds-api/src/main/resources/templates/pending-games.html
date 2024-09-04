@@ -8,7 +8,13 @@
 </head>
 <body class="bg-gray-900 text-gray-100 p-8">
     <div class="max-w-7xl mx-auto">
-        <h1 class="text-3xl font-bold mb-6 text-indigo-400">Pending Game Results</h1>
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-3xl font-bold text-indigo-400">Pending Game Results</h1>
+            <button id="manualUpdateBtn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">
+                Manual Database Update
+            </button>
+        </div>
+        <div id="updateMessage" class="mb-4 p-4 rounded hidden"></div>
         <div class="bg-gray-800 shadow-md rounded-lg overflow-hidden">
             <table class="min-w-full divide-y divide-gray-700">
                 <thead class="bg-gray-700">
@@ -46,5 +52,36 @@
             </table>
         </div>
     </div>
+
+    <script>
+        document.getElementById('manualUpdateBtn').addEventListener('click', function() {
+            fetch('/api/admin/update-database', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => response.text())
+            .then(data => {
+                const messageDiv = document.getElementById('updateMessage');
+                messageDiv.textContent = data;
+                messageDiv.classList.remove('hidden', 'bg-red-600', 'bg-green-600');
+                messageDiv.classList.add(data.includes('successfully') ? 'bg-green-600' : 'bg-red-600');
+                setTimeout(() => {
+                    messageDiv.classList.add('hidden');
+                }, 5000);
+            })
+            .catch((error) => {
+                console.error('Error:', error);
+                const messageDiv = document.getElementById('updateMessage');
+                messageDiv.textContent = 'An error occurred while updating the database.';
+                messageDiv.classList.remove('hidden', 'bg-green-600');
+                messageDiv.classList.add('bg-red-600');
+                setTimeout(() => {
+                    messageDiv.classList.add('hidden');
+                }, 5000);
+            });
+        });
+    </script>
 </body>
 </html>

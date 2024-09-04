@@ -8,11 +8,12 @@ import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriComponentsBuilder;
 
+import jakarta.annotation.PostConstruct;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -29,44 +30,68 @@ public class OddsPopulationService {
     @Autowired
     private RestTemplate restTemplate;
 
-    @Value("${api.key}")
+    @Value("${API_KEY}")
     private String apiKey;
 
-    @Value("${api.url}")
-    private String apiUrl;
-
-    @Value("${api.bookmaker}")
+    @Value("${API_BOOKMAKER}")
     private String bookmakerKey;
 
-    @Value("${api.targeted-sports}")
+    @Value("${API_TARGETED_SPORTS}")
+    private String targetedSportsString;
+
     private List<String> targetedSports;
 
-    @Scheduled(cron = "${api.update.cron}")
+    @PostConstruct
+    public void init() {
+        targetedSports = Arrays.asList(targetedSportsString.split(","));
+        logger.info("Initialized targeted sports: {}", targetedSports);
+        logger.info("API Key: {}", apiKey.substring(0, 4) + "..."); // Log only first 4 characters of API key
+        logger.info("Bookmaker Key: {}", bookmakerKey);
+    }
+
     @Transactional
     public void populateDatabase() {
         logger.info("Starting database population");
-        for (String sport : targetedSports) {
-            String[] sportInfo = sport.split(",");
-            String sportKey = sportInfo[0];
-            String marketType = sportInfo[1];
-            
-            logger.info("Fetching odds for {}", sportKey);
-            List<Map<String, Object>> data = fetchOdds(sportKey, marketType);
-            
-            if (data.isEmpty()) {
-                logger.warn("No data available for {}", sportKey);
+        logger.info("Targeted sports: {}", targetedSports);
+
+        if (targetedSports == null || targetedSports.isEmpty()) {
+            logger.error("No targeted sports configured. Check API_TARGETED_SPORTS environment variable.");
+            return;
+        }
+
+        for (int i = 0; i < targetedSports.size(); i += 2) {
+            if (i + 1 >= targetedSports.size()) {
+                logger.error("Incomplete sport configuration at index {}. Skipping.", i);
                 continue;
             }
+
+            String sportKey = targetedSports.get(i);
+            String marketType = targetedSports.get(i + 1);
             
-            int sportId = insertSport(sportKey, (String) data.get(0).get("sport_title"));
+            logger.info("Processing sport: {}, market type: {}", sportKey, marketType);
             
-            if ("h2h".equals(marketType)) {
-                processH2hMarket(sportId, data);
-            } else if ("outrights".equals(marketType)) {
-                processOutrightMarket(sportId, data);
+            try {
+                List<Map<String, Object>> data = fetchOdds(sportKey, marketType);
+                
+                if (data.isEmpty()) {
+                    logger.warn("No data available for {}", sportKey);
+                    continue;
+                }
+                
+                int sportId = insertSport(sportKey, (String) data.get(0).get("sport_title"));
+                
+                if ("h2h".equals(marketType)) {
+                    processH2hMarket(sportId, data);
+                } else if ("outrights".equals(marketType)) {
+                    processOutrightMarket(sportId, data);
+                } else {
+                    logger.warn("Unsupported market type: {} for sport: {}", marketType, sportKey);
+                }
+                
+                logger.info("Successfully updated odds for {}", sportKey);
+            } catch (Exception e) {
+                logger.error("Error processing sport: {}, market type: {}", sportKey, marketType, e);
             }
-            
-            logger.info("Successfully updated odds for {}", sportKey);
             
             try {
                 Thread.sleep(1000); // Be nice to the API
@@ -80,20 +105,22 @@ public class OddsPopulationService {
     }
 
     private List<Map<String, Object>> fetchOdds(String sportKey, String market) {
-        String url = apiUrl + "/" + sportKey + "/odds";
-        Map<String, String> params = new HashMap<>();
-        params.put("apiKey", apiKey);
-        params.put("regions", "us");
-        params.put("markets", market);
-        params.put("oddsFormat", "decimal");
-        params.put("bookmakers", bookmakerKey);
+        String url = "https://api.the-odds-api.com/v4/sports/" + sportKey + "/odds";
+        
+        UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(url)
+            .queryParam("apiKey", apiKey)
+            .queryParam("regions", "us")
+            .queryParam("markets", market)
+            .queryParam("oddsFormat", "decimal")
+            .queryParam("bookmakers", bookmakerKey);
+
+        logger.info("Fetching odds from URL: {}", builder.toUriString().replaceAll("apiKey=[^&]+", "apiKey=*****"));
 
         ResponseEntity<List<Map<String, Object>>> response = restTemplate.exchange(
-            url,
+            builder.toUriString(),
             HttpMethod.GET,
             null,
-            new ParameterizedTypeReference<List<Map<String, Object>>>() {},
-            params
+            new ParameterizedTypeReference<List<Map<String, Object>>>() {}
         );
 
         return response.getBody();
@@ -110,7 +137,14 @@ public class OddsPopulationService {
     }
 
     private void processH2hMarket(int sportId, List<Map<String, Object>> data) {
+        LocalDateTime now = LocalDateTime.now(ZoneId.of("America/New_York"));
         for (Map<String, Object> event : data) {
+            LocalDateTime commenceTime = LocalDateTime.parse((String) event.get("commence_time"), DateTimeFormatter.ISO_DATE_TIME);
+            if (commenceTime.isBefore(now)) {
+                logger.info("Skipping game {} as it has already started", event.get("id"));
+                continue;
+            }
+
             int gameId = insertGame(sportId, event);
             List<Map<String, Object>> bookmakers = getTypeSafeList(event.get("bookmakers"));
             for (Map<String, Object> bookmaker : bookmakers) {
@@ -201,6 +235,7 @@ public class OddsPopulationService {
     }
 
     private LocalDateTime getNflSeasonStart(int year) {
+        // Adjust this method based on the actual NFL season start dates
         if (year == 2024) {
             return LocalDateTime.of(2024, 9, 5, 0, 0);
         }
@@ -213,5 +248,17 @@ public class OddsPopulationService {
             return (List<T>) obj;
         }
         return new ArrayList<>();
+    }
+
+    @Transactional
+    public String manuallyPopulateDatabase() {
+        try {
+            logger.info("Starting manual database population");
+            populateDatabase();
+            return "Database manually updated successfully";
+        } catch (Exception e) {
+            logger.error("Error during manual database population", e);
+            return "Error updating database: " + e.getMessage();
+        }
     }
 }
